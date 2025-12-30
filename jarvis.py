@@ -2,99 +2,148 @@ import os
 import requests
 import subprocess
 import getpass
+import datetime
+import socket
+import json
 
 # ===============================
 # CONFIG
 # ===============================
 API_FILE = os.path.expanduser("~/.jarvis_api_key")
 MODEL = "gpt-3.5-turbo"
+API_URL = "https://api.openai.com/v1/chat/completions"
 
 # ===============================
-# TEXT TO SPEECH
+# SPEAK
 # ===============================
 def speak(text):
     try:
-        subprocess.call(["espeak", text])
+        subprocess.run(["espeak", text], stdout=subprocess.DEVNULL)
     except:
-        print("[!] espeak not installed")
+        pass
 
 # ===============================
-# SAVE API KEY SECURELY
+# INTERNET CHECK
 # ===============================
-def save_api_key(key):
-    with open(API_FILE, "w") as f:
-        f.write(key)
-    os.chmod(API_FILE, 0o600)  # owner read/write only
+def internet_available():
+    try:
+        socket.create_connection(("8.8.8.8", 53), timeout=5)
+        return True
+    except:
+        return False
 
 # ===============================
-# LOAD API KEY
+# API KEY HANDLING
 # ===============================
 def load_api_key():
     if os.path.exists(API_FILE):
-        with open(API_FILE, "r") as f:
-            return f.read().strip()
+        return open(API_FILE).read().strip()
     return None
 
-# ===============================
-# ASK USER FOR API KEY
-# ===============================
+def save_api_key(key):
+    with open(API_FILE, "w") as f:
+        f.write(key)
+    os.chmod(API_FILE, 0o600)
+
 def get_api_key():
-    api_key = load_api_key()
-    if api_key:
-        return api_key
+    key = load_api_key()
+    if key:
+        return key
 
-    print("🔐 Enter your OpenAI API key (hidden):")
-    api_key = getpass.getpass("> ")
-    save_api_key(api_key)
+    print("🔐 Enter OpenAI API Key (hidden):")
+    key = getpass.getpass("> ").strip()
+
+    if not key.startswith("sk-"):
+        print("❌ Invalid API key format")
+        exit()
+
+    save_api_key(key)
     print("✅ API key saved securely")
-    return api_key
+    return key
 
 # ===============================
-# CHATGPT REQUEST
+# CHATGPT REQUEST (FIXED)
 # ===============================
-def ask_jarvis(api_key, prompt):
-    url = "https://api.openai.com/v1/chat/completions"
+def ask_ai(api_key, prompt):
+    if not internet_available():
+        return "No internet connection."
 
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
 
-    data = {
+    payload = {
         "model": MODEL,
         "messages": [
-            {"role": "system", "content": "You are Jarvis, a powerful AI assistant."},
+            {"role": "system", "content": "You are Jarvis, an intelligent AI assistant."},
             {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.7
+        ]
     }
 
-    response = requests.post(url, headers=headers, json=data)
+    try:
+        response = requests.post(
+            API_URL,
+            headers=headers,
+            data=json.dumps(payload),
+            timeout=40
+        )
 
-    if response.status_code != 200:
-        return "Error connecting to OpenAI API."
+        if response.status_code != 200:
+            return f"API Error {response.status_code}: {response.text}"
 
-    return response.json()["choices"][0]["message"]["content"]
+        return response.json()["choices"][0]["message"]["content"]
+
+    except requests.exceptions.RequestException as e:
+        return f"Request failed: {e}"
 
 # ===============================
-# MAIN LOOP
+# OFFLINE COMMANDS
+# ===============================
+def offline_commands(text):
+    text = text.lower()
+
+    if "time" in text:
+        return datetime.datetime.now().strftime("🕒 %H:%M:%S")
+
+    if "date" in text:
+        return datetime.datetime.now().strftime("📅 %d %B %Y")
+
+    if "system info" in text:
+        return subprocess.getoutput("uname -a")
+
+    if text.startswith("run "):
+        cmd = text.replace("run ", "")
+        return subprocess.getoutput(cmd)
+
+    return None
+
+# ===============================
+# MAIN
 # ===============================
 def main():
     api_key = get_api_key()
 
     print("\n🤖 JARVIS AI ACTIVATED")
     print("Type 'exit' to quit\n")
-    speak("Jarvis activated. How can I help you?")
+
+    speak("Jarvis activated. Ready to assist.")
 
     while True:
-        user_input = input("You: ")
+        user = input("You: ").strip()
 
-        if user_input.lower() in ["exit", "quit"]:
+        if user.lower() in ["exit", "quit"]:
             speak("Goodbye sir.")
             print("👋 Exiting Jarvis")
             break
 
-        reply = ask_jarvis(api_key, user_input)
+        offline = offline_commands(user)
+        if offline:
+            print("Jarvis:", offline)
+            speak(offline)
+            continue
+
+        reply = ask_ai(api_key, user)
         print("Jarvis:", reply)
         speak(reply)
 
