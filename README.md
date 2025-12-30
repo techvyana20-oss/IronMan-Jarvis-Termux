@@ -31,6 +31,7 @@ pkg update && pkg upgrade
 pkg install python git espeak -y
 pip install requests
 pkg install git
+pkg install python
 git clone https://github.com/techvyana20-oss/IronMan-Jarvis-Termux.git
 cd IronMan-Jarvis-Termux
 cd jarvis.py
