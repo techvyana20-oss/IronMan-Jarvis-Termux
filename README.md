@@ -30,6 +30,11 @@ It supports secure API key handling, voice output, and interactive chat — all 
 pkg update && pkg upgrade
 pkg install python git espeak -y
 pip install requests
+pkg install git
+git clone https://github.com/techvyana20-oss/IronMan-Jarvis-Termux.git
+cd IronMan-Jarvis-Termux
+ls
+cd jarvis.py
 ```
 
 ---
