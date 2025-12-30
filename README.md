@@ -51,7 +51,7 @@ You are responsible for your API usage and costs.
 ---
 
 ## 👨‍💻 Author
-TechVyana
+TechVyana2.0
 
 ---
 
